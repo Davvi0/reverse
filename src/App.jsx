@@ -1,13 +1,16 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import Ico from './components/Icone'
 import Recorder from './components/Recorder'
+import OnlineRooms from './components/OnlineRooms'
 import { Player, PlayerAbas } from './components/Player'
-import { Avatar, Btn, Etiqueta, Folha, Passos, Pontos, Segurar, Tela, Titulo } from './components/ui'
+import { Avatar, Btn, Etiqueta, Folha, Pontos, Segurar, Tela, Titulo } from './components/ui'
 
 const EM_PARTIDA = ['passagem', 'gravacao', 'rodada', 'prontoRevelacao', 'revelacao', 'fim']
 
 export default function App() {
   const [tela, setTela] = useState('inicio')
+  const [qtdRodadas, setQtdRodadas] = useState(3)
+  const [rodadaLocal, setRodadaLocal] = useState(0)
   const [jogadores, setJogadores] = useState(['Jogador 1', 'Jogador 2', 'Jogador 3'])
   const [idsJogadores, setIdsJogadores] = useState([0, 1, 2])
   const [jogadorNovo, setJogadorNovo] = useState(null)
@@ -16,7 +19,6 @@ export default function App() {
   const [atual, setAtual] = useState(0)
   const [original, setOriginal] = useState(null)
   const [tentativas, setTentativas] = useState([])
-  const [ouviu, setOuviu] = useState(false)
   const [estadoRec, setEstadoRec] = useState('espera')
   const [rev, setRev] = useState(0)
   const [ver, setVer] = useState(0)
@@ -94,11 +96,11 @@ export default function App() {
     setTentativas([])
     setAtual(0)
     setRev(0)
-    setOuviu(false)
     setEstadoRec('espera')
   }
 
   function iniciarPartida() {
+    setRodadaLocal(0)
     setJogadores(j => j.map(n => n.trim()))
     zerar()
     setTela('passagem')
@@ -106,13 +108,21 @@ export default function App() {
 
   // Reinicia sem recarregar a página: libera áudios, microfone e estado
   function reiniciar(modo) {
+    setRodadaLocal(0)
     setMenu(false)
     zerar()
     setTela(modo === 'mesmos' ? 'passagem' : 'jogadores')
   }
 
+  function proximaRodadaLocal() {
+    setJogadores(lista => [...lista.slice(1), lista[0]])
+    setIdsJogadores(lista => [...lista.slice(1), lista[0]])
+    setRodadaLocal(r => r + 1)
+    zerar()
+    setTela('passagem')
+  }
+
   function confirmarPassagem() {
-    setOuviu(false)
     setEstadoRec('espera')
     setTela(atual === 0 ? 'gravacao' : 'rodada')
   }
@@ -175,7 +185,6 @@ export default function App() {
   }
 
   const nome = jogadores[atual] ?? ''
-  const anterior = jogadores[atual - 1] ?? ''
 
   return (
     <div className="min-h-dvh flex flex-col">
@@ -225,9 +234,12 @@ export default function App() {
                 ))}
               </div>
               <p className="mt-5 text-lg font-semibold tracking-wide text-white/80">Escute. Inverta. Descubra.</p>
+              <button onClick={() => setTela('online')} className="mt-6 min-h-12 rounded-2xl border border-line bg-white/5 px-5 text-sm font-bold tracking-wide text-white transition active:scale-95">JOGAR ONLINE <Ico n="arrow" className="ml-1 inline size-4" /></button>
             </div>
           </Tela>
         )}
+
+        {tela === 'online' && <OnlineRooms onVoltar={() => setTela('inicio')} />}
 
         {tela === 'jogadores' && (
           <Tela
@@ -259,6 +271,14 @@ export default function App() {
               >
                 <Ico n="plus" />
               </button>
+            </div>
+
+            <div className="mt-5 rounded-2xl border border-line bg-panel p-4">
+              <p className="text-xs font-bold uppercase tracking-[.18em] text-hot">Duração da partida</p>
+              <p className="mt-1 text-sm text-white/55">Cada rodada tem uma frase e uma revelação.</p>
+              <div className="mt-3 grid grid-cols-3 gap-2">
+                {[3, 5, 8].map(n => <button key={n} type="button" onClick={() => setQtdRodadas(n)} aria-pressed={qtdRodadas === n} className={`rounded-xl border px-2 py-3 text-sm font-bold ${qtdRodadas === n ? 'border-brand bg-brand/15 text-hot' : 'border-line bg-white/5 text-white/65'}`}>{n} rodadas</button>)}
+              </div>
             </div>
 
             <ul ref={listaJogadoresRef} className="mt-4 space-y-2.5">
@@ -298,35 +318,16 @@ export default function App() {
 
         {tela === 'passagem' && (
           <Tela
-            rodape={
-              <>
-                <Segurar onConfirm={confirmarPassagem}>SEGURE · SOU {nome.toUpperCase()}</Segurar>
-                <p className="text-center text-xs text-white/40">Segure o botão por um instante para confirmar que o celular está com você.</p>
-              </>
-            }
+            rodape={<Segurar onConfirm={confirmarPassagem}>SEGURE · SOU {nome.toUpperCase()}</Segurar>}
           >
-            <Pontos total={jogadores.length} atual={atual} />
-            <div className="mt-8 text-center">
-              <Etiqueta>{atual === 0 ? 'Frase secreta' : `Rodada ${atual} de ${jogadores.length - 1}`}</Etiqueta>
-              <div className="relative mx-auto mt-6 w-fit">
+            <div className="flex min-h-[55dvh] flex-col items-center justify-center text-center">
+              <div className="relative">
                 <span className="absolute inset-0 rounded-2xl bg-brand/40 animate-anel" />
                 <Avatar nome={nome} i={atual} className="relative size-28 text-5xl" />
               </div>
-              <p className="mt-6 text-white/60">Passe o celular para</p>
-              <h2 className="font-display font-bold text-5xl break-words leading-tight">{nome}</h2>
-            </div>
-
-            <div className="mt-8 flex gap-3 rounded-2xl border border-line bg-panel p-4">
-              <Ico n="lock" className="size-5 shrink-0 text-accent mt-0.5" />
-              <p className="text-sm text-white/70">
-                {atual === 0
-                  ? 'Todos os outros: virem de costas ou se afastem. A frase é um segredo até a revelação final.'
-                  : `A gravação de ${anterior} foi guardada e está escondida. Os outros jogadores não devem ver nem ouvir a tela.`}
-              </p>
-            </div>
-            <div className="mt-3 flex gap-3 rounded-2xl border border-line bg-panel p-4">
-              <Ico n="phones" className="size-5 shrink-0 text-accent mt-0.5" />
-              <p className="text-sm text-white/70">Dica: com fones de ouvido ninguém escuta o áudio.</p>
+              <Etiqueta className="mt-6">Rodada {rodadaLocal + 1} de {qtdRodadas}</Etiqueta>
+              <Titulo className="mt-3">{nome}, sua vez</Titulo>
+              <p className="mt-3 text-sm text-white/60">Só {nome} deve olhar a tela.</p>
             </div>
           </Tela>
         )}
@@ -335,53 +336,33 @@ export default function App() {
           <Tela
             rodape={<Recorder onPronto={fraseGravada} onEstado={setEstadoRec} rotulo="GRAVAR FRASE SECRETA" />}
           >
-            <Etiqueta>Gravação secreta</Etiqueta>
-            <Titulo className="mt-2">Diga sua frase, {nome}</Titulo>
-            <div className="my-8 grid place-items-center">
-              <div className="relative size-36 grid place-items-center">
-                {estadoRec === 'gravando' && <span className="absolute inset-0 rounded-full bg-hot/30 animate-anel" />}
-                <span
-                  className={`relative size-24 grid place-items-center rounded-full transition-colors ${
-                    estadoRec === 'gravando' ? 'bg-red-500' : 'bg-brand'
-                  }`}
-                >
-                  <Ico n="mic" className="size-10" />
-                </span>
+            <div className="flex min-h-[55dvh] flex-col items-center justify-center text-center">
+              <Titulo>Diga uma frase, {nome}</Titulo>
+              <div className="mt-8 grid place-items-center">
+                <div className="relative size-28 grid place-items-center">
+                  {estadoRec === 'gravando' && <span className="absolute inset-0 rounded-full bg-hot/30 animate-anel" />}
+                  <span
+                    className={`relative size-20 grid place-items-center rounded-full transition-colors ${
+                      estadoRec === 'gravando' ? 'bg-red-500' : 'bg-brand'
+                    }`}
+                  >
+                    <Ico n="mic" className="size-8" />
+                  </span>
+                </div>
               </div>
             </div>
-            <Passos
-              itens={[
-                { t: `Só ${nome} fica com o celular`, d: 'Os outros viram de costas ou saem de perto.', s: estadoRec === 'espera' ? 'atual' : 'feito' },
-                { t: 'Fale uma frase curta', d: 'Algo de 3 a 6 segundos, em voz clara. Ex.: “O gato subiu no telhado”.', s: estadoRec === 'gravando' ? 'atual' : estadoRec === 'processando' ? 'feito' : 'espera' },
-                { t: 'Toque em parar', d: 'O áudio é invertido automaticamente e escondido.', s: estadoRec === 'processando' ? 'atual' : 'espera' },
-              ]}
-            />
           </Tela>
         )}
 
         {tela === 'rodada' && original && (
           <Tela rodape={<Recorder onPronto={tentativaGravada} onEstado={setEstadoRec} rotulo="GRAVAR MINHA TENTATIVA" />}>
-            <div className="flex items-center gap-3 rounded-2xl bg-panel border border-line p-3">
+            <div className="mt-4 flex flex-col items-center text-center">
               <Avatar nome={nome} i={atual} />
-              <div>
-                <p className="text-xs text-white/50">Rodada {atual} de {jogadores.length - 1}</p>
-                <p className="font-display font-bold text-xl leading-tight">Vez de {nome}</p>
-              </div>
+              <Titulo className="mt-3">Ouça e repita, {nome}</Titulo>
             </div>
 
             <div className="mt-5">
-              <Etiqueta className="mb-2">Áudio invertido</Etiqueta>
-              <Player fonte={original.invertido} onPlay={() => setOuviu(true)} />
-            </div>
-
-            <div className="mt-5">
-              <Passos
-                itens={[
-                  { t: 'Ouça o áudio invertido', d: 'Quantas vezes quiser. Use “Velocidade” para ouvir mais devagar.', s: ouviu ? 'feito' : 'atual' },
-                  { t: 'Imite exatamente o que ouviu', d: 'Repita os sons como escutou, mesmo que não façam sentido.', s: estadoRec === 'gravando' ? 'atual' : estadoRec === 'processando' ? 'feito' : ouviu ? 'atual' : 'espera' },
-                  { t: 'Toque em parar', d: 'Depois passe o celular sem mostrar a tela.', s: estadoRec === 'gravando' ? 'atual' : estadoRec === 'processando' ? 'feito' : 'espera' },
-                ]}
-              />
+              <Player fonte={original.invertido} />
             </div>
           </Tela>
         )}
@@ -472,17 +453,23 @@ export default function App() {
           <Tela
             rodape={
               <>
-                <Btn onClick={() => reiniciar('mesmos')}>
-                  <Ico n="replay" /> JOGAR DE NOVO
-                </Btn>
+                {rodadaLocal + 1 < qtdRodadas ? (
+                  <Btn onClick={proximaRodadaLocal}>
+                    PRÓXIMA RODADA ({rodadaLocal + 2}/{qtdRodadas}) <Ico n="arrow" />
+                  </Btn>
+                ) : (
+                  <Btn onClick={() => reiniciar('mesmos')}>
+                    <Ico n="replay" /> JOGAR DE NOVO
+                  </Btn>
+                )}
                 <Btn variante="ghost" onClick={() => reiniciar('trocar')}>
                   TROCAR JOGADORES
                 </Btn>
               </>
             }
           >
-            <Etiqueta>Fim de jogo</Etiqueta>
-            <Titulo className="mt-2">Reveja tudo</Titulo>
+            <Etiqueta>Rodada {rodadaLocal + 1} de {qtdRodadas}</Etiqueta>
+            <Titulo className="mt-2">{rodadaLocal + 1 === qtdRodadas ? 'Partida concluída!' : 'Reveja a rodada'}</Titulo>
             <p className="mt-2 text-white/60">Escolha um jogador e ouça de novo.</p>
 
             <div className="mt-5 -mx-5 px-5 flex gap-2 overflow-x-auto pb-2">
