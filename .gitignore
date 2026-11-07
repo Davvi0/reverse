@@ -23,12 +23,3 @@ dist-ssr
 *.sln
 *.sw?
 
-
-# Supabase - variáveis de ambiente
-.env
-.env.*
-!.env.example
-
-# Arquivos temporários
-*.tmp
-*.bak
