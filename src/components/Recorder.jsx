@@ -5,10 +5,11 @@ import { mensagemErro, processarGravacao } from '../utils/audio'
 
 const LIMITE = 20 // segundos
 const BARRAS = 32
+const MICROFONE_OCUPADO = 'O microfone foi interrompido ou está em uso por outro aplicativo. Se estiver em uma ligação, encerre a chamada ou use outro aparelho para ela e tente gravar novamente.'
 const tempo = s => `0:${String(s).padStart(2, '0')}`
 
 export default function Recorder({ onPronto, onEstado, rotulo = 'GRAVAR' }) {
-  const [estado, setEstado] = useState('espera') // espera | gravando | processando
+  const [estado, setEstado] = useState('espera') // espera | preparando | gravando | processando
   const [erro, setErro] = useState('')
   const [seg, setSeg] = useState(0)
   const r = useRef({})
@@ -22,6 +23,8 @@ export default function Recorder({ onPronto, onEstado, rotulo = 'GRAVAR' }) {
 
   // libera microfone, medidor e cronômetro
   function soltar() {
+    r.current.limparTrack?.()
+    r.current.limparTrack = null
     clearInterval(r.current.timer)
     cancelAnimationFrame(r.current.raf)
     r.current.stream?.getTracks().forEach(t => t.stop())
@@ -47,11 +50,11 @@ export default function Recorder({ onPronto, onEstado, rotulo = 'GRAVAR' }) {
     try {
       const Ctx = window.AudioContext || window.webkitAudioContext
       const ctx = new Ctx()
-      ctx.resume?.()
+      r.current.ctx = ctx
+      ctx.resume?.().catch(() => {})
       const an = ctx.createAnalyser()
       an.fftSize = 512
       ctx.createMediaStreamSource(stream).connect(an)
-      r.current.ctx = ctx
 
       const buf = new Uint8Array(an.fftSize)
       const hist = Array(BARRAS).fill(0)
@@ -71,11 +74,14 @@ export default function Recorder({ onPronto, onEstado, rotulo = 'GRAVAR' }) {
   }
 
   async function iniciar() {
+    if (r.current.ocupado) return
     setErro('')
     if (!navigator.mediaDevices?.getUserMedia || typeof MediaRecorder === 'undefined') {
       setErro('Este navegador não suporta gravação de áudio. Use o Chrome ou o Safari atualizados.')
       return
     }
+    r.current.ocupado = true
+    muda('preparando')
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
         audio: { echoCancellation: true, noiseSuppression: true },
@@ -85,6 +91,12 @@ export default function Recorder({ onPronto, onEstado, rotulo = 'GRAVAR' }) {
         return
       }
 
+      r.current.stream = stream
+      const track = stream.getAudioTracks()[0]
+      if (!track || track.readyState !== 'live' || track.muted) {
+        throw new Error('microfone-ocupado')
+      }
+
       const tipo = ['audio/webm;codecs=opus', 'audio/webm', 'audio/mp4', 'audio/ogg'].find(t =>
         MediaRecorder.isTypeSupported?.(t)
       )
@@ -92,30 +104,44 @@ export default function Recorder({ onPronto, onEstado, rotulo = 'GRAVAR' }) {
       const partes = []
 
       rec.ondataavailable = e => e.data.size > 0 && partes.push(e.data)
-      rec.onerror = () => {
+      const interromper = () => {
+        // Disable stop processing before stopping: interrupted recordings must not be sent.
+        rec.onstop = rec.ondataavailable = rec.onerror = null
+        if (rec.state !== 'inactive') { try { rec.stop() } catch { /* already stopped */ } }
         soltar()
-        setErro('Houve um problema na gravação. Tente de novo.')
-        muda('espera')
+        r.current.ocupado = false
+        if (vivo.current) { setErro(MICROFONE_OCUPADO); muda('espera') }
+      }
+      rec.onerror = interromper
+      track.addEventListener('mute', interromper)
+      track.addEventListener('ended', interromper)
+      r.current.limparTrack = () => {
+        track.removeEventListener('mute', interromper)
+        track.removeEventListener('ended', interromper)
       }
       rec.onstop = async () => {
+        if (!vivo.current) { soltar(); return }
+        if (track.muted || track.readyState !== 'live') { interromper(); return }
         soltar()
         muda('processando')
         try {
           const blob = new Blob(partes, { type: rec.mimeType || tipo || '' })
           const resultado = await processarGravacao(blob)
-          if (vivo.current) onPronto(resultado)
+          if (vivo.current) await onPronto(resultado)
         } catch (e) {
           console.error(e)
           if (vivo.current) {
             setErro(mensagemErro(e))
             muda('espera')
           }
+        } finally {
+          r.current.ocupado = false
         }
       }
 
       r.current.stream = stream
       r.current.rec = rec
-      rec.start()
+      rec.start(250)
       medidor(stream)
 
       setSeg(0)
@@ -128,11 +154,17 @@ export default function Recorder({ onPronto, onEstado, rotulo = 'GRAVAR' }) {
       muda('gravando')
     } catch (e) {
       console.error(e)
+      soltar()
+      r.current.ocupado = false
+      if (!vivo.current) return
+      muda('espera')
       const negado = e?.name === 'NotAllowedError' || e?.name === 'SecurityError'
       setErro(
         negado
           ? 'Microfone bloqueado. Libere a permissão do microfone nas configurações do navegador e tente de novo.'
-          : 'Não foi possível acessar o microfone.'
+          : ['NotReadableError', 'AbortError'].includes(e?.name) || e?.message === 'microfone-ocupado'
+            ? MICROFONE_OCUPADO
+            : 'Não foi possível acessar o microfone. Confira se ele está conectado e tente novamente.'
       )
     }
   }
@@ -163,7 +195,9 @@ export default function Recorder({ onPronto, onEstado, rotulo = 'GRAVAR' }) {
         </div>
       )}
 
-      {estado === 'processando' ? (
+      {estado === 'preparando' ? (
+        <Btn disabled><Ico n="mic" /> ABRINDO MICROFONE…</Btn>
+      ) : estado === 'processando' ? (
         <div className="min-h-14 flex items-center justify-center gap-3 font-display font-bold text-accent">
           <span className="size-5 rounded-full border-2 border-accent border-t-transparent animate-spin" />
           INVERTENDO ÁUDIO…

@@ -9,10 +9,12 @@ const MINIMO = 0.35 // segundos de voz
 export async function processarGravacao(blob) {
   if (!blob || blob.size === 0) throw new Error('vazio')
 
+  const OfflineCtx = window.OfflineAudioContext || window.webkitOfflineAudioContext
   const Ctx = window.AudioContext || window.webkitAudioContext
-  if (!Ctx) throw new Error('sem-suporte')
+  if (!OfflineCtx && !Ctx) throw new Error('sem-suporte')
 
-  const ctx = new Ctx()
+  // Decoding does not need a live audio device, which may be occupied by a call.
+  const ctx = OfflineCtx ? new OfflineCtx(1, 1, 44100) : new Ctx()
   let buffer
   try {
     const dados = await blob.arrayBuffer()
@@ -23,7 +25,7 @@ export async function processarGravacao(blob) {
   } catch {
     throw new Error('decodificacao')
   } finally {
-    try { await ctx.close() } catch { /* ignora */ }
+    try { await ctx.close?.() } catch { /* ignora */ }
   }
 
   const taxa = buffer.sampleRate
@@ -60,7 +62,7 @@ export async function processarGravacao(blob) {
 
 export function mensagemErro(e) {
   switch (e?.message) {
-    case 'silencio': return 'Não ouvimos nada. Fale mais perto do microfone e tente de novo.'
+    case 'silencio': return 'Não recebemos som do microfone. Fale mais perto e tente de novo. Se estiver em uma ligação, ela pode estar bloqueando o microfone: encerre a chamada ou use outro aparelho para ela.'
     case 'curto': return 'Gravação curta demais. Fale um pouco mais e tente de novo.'
     case 'vazio': return 'A gravação veio vazia. Tente novamente.'
     case 'sem-suporte': return 'Este navegador não suporta processamento de áudio.'
