@@ -67,7 +67,7 @@ export function Player({ fonte, auto = false, onPlay }) {
   const fim = prog >= 0.995 && !tocando
 
   return (
-    <div className="rounded-3xl bg-panel border border-line p-4">
+    <div className="audio-player rounded-xl bg-panel border border-line p-4">
       <audio
         ref={el}
         src={url || undefined}
@@ -138,7 +138,7 @@ export function Player({ fonte, auto = false, onPlay }) {
         <button
           onClick={() => (tocando ? el.current.pause() : tocar())}
           aria-label={tocando ? 'Pausar' : 'Tocar'}
-          className="justify-self-center size-16 grid place-items-center rounded-full bg-linear-to-br from-brand to-hot text-ink active:scale-95 transition"
+          className="justify-self-center size-16 grid place-items-center rounded-full bg-brand text-ink active:scale-95 transition"
         >
           <Ico n={tocando ? 'pause' : fim ? 'replay' : 'play'} className="size-7" />
         </button>

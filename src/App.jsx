@@ -188,8 +188,7 @@ export default function App() {
 
   return (
     <div className="min-h-dvh flex flex-col">
-      {tela !== 'inicio' && (
-        <header className="flex items-center justify-between px-5 pt-[max(1rem,env(safe-area-inset-top))] pb-2 max-w-md w-full mx-auto">
+      {tela !== 'inicio' && <header className="flex items-center justify-between px-5 pt-[max(1rem,env(safe-area-inset-top))] pb-2 max-w-md w-full mx-auto">
           {tela === 'jogadores' ? (
             <button onClick={() => setTela('inicio')} className="flex items-center gap-1.5 min-h-11 text-white/70">
               <Ico n="back" className="size-4" /> Voltar
@@ -205,36 +204,32 @@ export default function App() {
               <Ico n="replay" className="size-4" /> Reiniciar
             </button>
           )}
-        </header>
-      )}
+      </header>}
 
       <main key={`${tela}-${atual}`} className="flex-1 flex flex-col w-full max-w-md mx-auto px-5 pt-4">
         {tela === 'inicio' && (
-          <Tela
-            rodape={<Btn onClick={() => setTela('jogadores')}>JOGAR AGORA <Ico n="arrow" /></Btn>}
-          >
-            <div className="flex min-h-[calc(100dvh-10rem)] flex-col items-center justify-center text-center">
-              <h1 className="font-display font-bold leading-none tracking-tight text-[clamp(3.2rem,17vw,5.5rem)]">
-                <span className="text-hot">REVERSE</span>
-                <span
-                  aria-hidden="true"
-                  className="block -scale-y-100 opacity-20 -mt-[0.1em] text-hot [mask-image:linear-gradient(to_bottom,black,transparent_65%)]"
-                >
-                  REVERSE
-                </span>
-              </h1>
-
-              <div className="flex items-center justify-center gap-[3px] h-14 mt-2" aria-hidden="true">
-                {Array.from({ length: 31 }, (_, i) => (
-                  <span
-                    key={i}
-                    className="w-1.5 rounded-full bg-linear-to-t from-brand to-hot animate-onda"
-                    style={{ height: `${30 + ((i * 37) % 70)}%`, animationDelay: `${i * 70}ms` }}
-                  />
-                ))}
+          <Tela>
+            <div className="home-screen">
+              <div className="home-intro">
+                <h1 className="home-logo">
+                  <span>REVERSE</span>
+                  <span className="home-logo-reflection" aria-hidden="true">REVERSE</span>
+                </h1>
+                <div className="home-wave" aria-hidden="true">
+                  {Array.from({ length: 31 }, (_, i) => <span key={i} className="animate-onda" style={{ height: (30 + ((i * 37) % 70)) + '%', animationDelay: (i * 70) + 'ms' }} />)}
+                </div>
+                <p>Escute. Inverta. Descubra.</p>
               </div>
-              <p className="mt-5 text-lg font-semibold tracking-wide text-white/80">Escute. Inverta. Descubra.</p>
-              <button onClick={() => setTela('online')} className="mt-6 min-h-12 rounded-2xl border border-line bg-white/5 px-5 text-sm font-bold tracking-wide text-white transition active:scale-95">JOGAR ONLINE <Ico n="arrow" className="ml-1 inline size-4" /></button>
+              <nav className="home-modes" aria-label="Escolha como jogar">
+                <div>
+                  <Btn onClick={() => setTela('online')}>JOGAR ONLINE <Ico n="arrow" /></Btn>
+                  <p>Cada um no seu celular</p>
+                </div>
+                <div>
+                  <Btn variante="ghost" onClick={() => setTela('jogadores')}>JOGAR NO MESMO CELULAR</Btn>
+                  <p>Junte os amigos e passe a vez</p>
+                </div>
+              </nav>
             </div>
           </Tela>
         )}

@@ -26,9 +26,9 @@ export function Avatar({ nome, i, className = 'size-12 text-xl' }) {
 }
 
 const BASE =
-  'w-full min-h-14 px-6 rounded-2xl font-display font-bold tracking-wide text-base inline-flex items-center justify-center gap-2 transition-[transform,background-color,border-color,box-shadow] duration-300 ease-out active:scale-[0.97] disabled:opacity-40 disabled:pointer-events-none select-none'
+  'w-full min-h-14 px-6 rounded-xl font-display font-bold text-base inline-flex items-center justify-center gap-2 transition-[transform,background-color,border-color,box-shadow] duration-300 ease-out active:scale-[0.97] disabled:opacity-40 disabled:pointer-events-none select-none'
 const VARIANTES = {
-  primario: 'bg-linear-to-r from-brand to-hot text-ink shadow-[0_10px_30px_-10px_rgba(255,82,132,0.55)]',
+  primario: 'bg-brand text-ink hover:bg-hot',
   ghost: 'bg-white/5 border border-line text-white hover:bg-white/10',
   perigo: 'bg-red-500 text-white',
 }
